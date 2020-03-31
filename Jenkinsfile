@@ -35,8 +35,8 @@ def get_stages(profile, docker_image, config_url, conan_develop_repo, conan_tmp_
                 sh 'rm -rf "${CONAN_USER_HOME}"'
                 sh "conan --version"
                 sh "conan config install ${config_url}"
-                sh "conan remote add ${conan_develop_repo} http://${artifactory_url}/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
-                sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
+                sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
+                sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
                 withCredentials([usernamePassword(credentialsId: 'artifactory', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                   sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
                   sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
@@ -118,8 +118,8 @@ pipeline {
           String profile = profiles.keySet().iterator().next()
           docker.image(docker_image).inside("--net=host") {
             sh "conan config install ${config_url}"
-            sh "conan remote add ${conan_develop_repo} http://${artifactory_url}/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
-            sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
+            sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
+            sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
             withCredentials([usernamePassword(credentialsId: 'artifactory', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
               sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
               sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
