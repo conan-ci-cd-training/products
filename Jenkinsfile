@@ -142,7 +142,7 @@ pipeline {
                   //if (lib.value.indexOf(reference_name) != -1) {
                   //  affected_products.add(product.key)
                   //  println "added ${product.key} to affected products"
-                  }
+                  //}
                 }
               }
             }
