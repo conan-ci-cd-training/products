@@ -117,15 +117,21 @@ pipeline {
           String docker_image = profiles.values().iterator().next()
           String profile = profiles.keySet().iterator().next()
           docker.image(docker_image).inside("--net=host") {
+            sh "conan config install ${config_url}"
+            sh "conan remote add ${conan_develop_repo} http://${artifactory_url}/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
+            sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
+            withCredentials([usernamePassword(credentialsId: 'artifactory', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+              sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
+              sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
+            }
             products.each { product ->
-                println "name: $product.key repo: $product.value"
-                def lockfile = "$product.lock"
-                def bo = "$product.json"
-                git url: "$product.value", branch : "develop"
-                sh "conan install $product.key --profile ${profile} -r ${conan_develop_repo}"
-                sh "conan graph lock $product.key --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
-                sh "conan graph build-order ${lockfile} --json=${bo}"
-                sh "cat ${bo}"
+              println "name: ${product.key} repo: ${product.value}"
+              def lockfile = "${product.lock}"
+              def bo = "${product.json}"
+              sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
+              sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
+              sh "conan graph build-order ${lockfile} --json=${bo}"
+              sh "cat ${bo}"
             }
           }
         }
