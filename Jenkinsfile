@@ -126,8 +126,8 @@ pipeline {
             }
             products.each { product ->
               println "name: ${product.key} repo: ${product.value}"
-              def lockfile = "${product.lock}"
-              def bo = "${product.json}"
+              def lockfile = "${product.key}.lock"
+              def bo = "${product.key}.json"
               sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
               sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
               sh "conan graph build-order ${lockfile} --json=${bo}"
