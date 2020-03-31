@@ -22,6 +22,8 @@ def products = [
   "App2/1.0@mycompany/stable": "https://github.com/conan-ci-cd-training/App2.git"	
 ]
 
+def affected_products = []
+
 def get_stages(profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, library_branch, artifactory_url) {
   return {
     stage(profile) {
@@ -127,11 +129,23 @@ pipeline {
             products.each { product ->
               println "name: ${product.key} repo: ${product.value}"
               def lockfile = "${product.key}.lock"
-              def bo = "${product.key}.json"
+              def build_order_file = "${product.key}.json"
               sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
               sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
-              sh "conan graph build-order ${lockfile} --json=${bo}"
+              sh "conan graph build-order ${lockfile} --json=${build_order_file} --build"
               sh "cat ${bo}"
+              def reference_name = params.reference.split("#")[0]
+              build_order = readJSON file: build_order_file
+              // nested list
+              build_order.each { libs ->
+                libs.each { lib ->
+                  println "checking if ${lib.value} affects product ${product.key}"
+                  if (lib.value.indexOf(reference_name) != -1) {
+                    affected_products.add(product.key)
+                    println "added ${product.key} to affected products"
+                  }
+                }
+              }
             }
           }
         }
