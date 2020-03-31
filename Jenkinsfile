@@ -18,8 +18,8 @@ def profiles = [
 def build_result = [:]
 
 def products = [
-  "App": "https://github.com/conan-ci-cd-training/App.git",	
-  "App2": "https://github.com/conan-ci-cd-training/App2.git"	
+  "App/1.0@mycompany/stable": "https://github.com/conan-ci-cd-training/App.git",	
+  "App2/1.0@mycompany/stable": "https://github.com/conan-ci-cd-training/App2.git"	
 ]
 
 def get_stages(profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, library_branch, artifactory_url) {
