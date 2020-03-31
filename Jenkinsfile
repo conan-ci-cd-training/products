@@ -129,13 +129,13 @@ pipeline {
             products.each { product ->
               println "name: ${product.key} repo: ${product.value}"
               def lockfile = "${product.key}.lock"
-              def build_order_file = "${product.key}.json"
+              def bo_file = "${product.key}.json"
               sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
               sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
-              sh "conan graph build-order ${lockfile} --json=${build_order_file} --build"
+              sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
               sh "cat ${bo}"
               def reference_name = params.reference.split("#")[0]
-              build_order = readJSON file: build_order_file
+              build_order = readJSON file: bo_file
               // nested list
               build_order.each { libs ->
                 libs.each { lib ->
