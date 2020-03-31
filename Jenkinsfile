@@ -139,7 +139,7 @@ pipeline {
               build_order.each { libs ->
                 libs.each { lib ->
                   println "checking if ${lib[1]} has ${reference_name} --> affects product ${product.key}"
-                  if (lib[1].value.indexOf(reference_name) != -1) {
+                  if (lib[1].value.indexOf("${reference_name}") != -1) {
                     affected_products.add(product.key)
                     println "added ${product.key} to affected products"
                   }
