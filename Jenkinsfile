@@ -133,7 +133,6 @@ pipeline {
               sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
               sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
               sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
-              sh "cat ${bo}"
               def reference_name = params.reference.split("#")[0]
               build_order = readJSON file: bo_file
               // nested list
