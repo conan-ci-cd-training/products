@@ -17,6 +17,11 @@ def profiles = [
 
 def build_result = [:]
 
+def products = [
+  "App": "https://github.com/conan-ci-cd-training/App.git",	
+  "App2": "https://github.com/conan-ci-cd-training/App2.git"	
+]
+
 def get_stages(profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, library_branch, artifactory_url) {
   return {
     stage(profile) {
@@ -97,7 +102,7 @@ pipeline {
 
   parameters {
     string(name: 'reference',)
-    string(name: 'project_id',)
+    string(name: 'organization',)
     string(name: 'build_name',)
     string(name: 'build_number',)
     string(name: 'commit_number',)
@@ -105,6 +110,28 @@ pipeline {
   }
 
   stages {
+
+    stage("Check affected products") {
+      steps {
+        script {
+          String docker_image = profiles.values().iterator().next()
+          String profile = profiles.keySet().iterator().next()
+          docker.image(docker_image).inside("--net=host") {
+            products.each { product ->
+                println "name: $product.key repo: $product.value"
+                def lockfile = "$product.lock"
+                def bo = "$product.json"
+                git url: "$product.value", branch : "develop"
+                sh "conan install $product.key --profile ${profile} -r ${conan_develop_repo}"
+                sh "conan graph lock $product.key --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
+                sh "conan graph build-order ${lockfile} --json=${bo}"
+                sh "cat ${bo}"
+            }
+          }
+        }
+      }
+    }
+
     stage('Build information') {
       steps {
         script {
