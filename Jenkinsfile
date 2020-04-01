@@ -167,7 +167,7 @@ pipeline {
       steps {
         script {          
           affected_products.each { product ->
-            stage('Build "${product}"') {
+            stage("Build ${product}") {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
               echo " - called from: ${params.build_name}, build number: ${params.build_number}"
