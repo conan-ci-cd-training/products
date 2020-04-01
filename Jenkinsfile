@@ -177,8 +177,8 @@ pipeline {
               }              
             }
             ["${product}": build_result]
-            println products_build_result
           }
+          println products_build_result
         }
       }
     }
