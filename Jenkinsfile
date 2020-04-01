@@ -173,11 +173,9 @@ pipeline {
               echo " - called from: ${params.build_name}, build number: ${params.build_number}"
               echo " - commit: ${params.commit_number} from branch: ${params.library_branch}"              
               script {
-                build_result = withEnv(["CONAN_HOOK_ERROR_LEVEL=40"]) {
-                  parallel profiles.collectEntries { profile, docker_image ->
-                    ["${profile}": get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
-                  }
-                }         
+                build_result = parallel profiles.collectEntries { profile, docker_image ->
+                  ["${profile}": get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
+                }
               }
             }
           }
