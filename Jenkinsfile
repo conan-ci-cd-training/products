@@ -162,15 +162,15 @@ pipeline {
     }
 
     stage('Build affected products') {
+      agent any
       steps {
-        script {
+        script {          
           affected_products.each { product ->
             stage('Build "${product}"') {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
               echo " - called from: ${params.build_name}, build number: ${params.build_number}"
-              echo " - commit: ${params.commit_number} from branch: ${params.library_branch}"
-              agent any
+              echo " - commit: ${params.commit_number} from branch: ${params.library_branch}"              
               steps {
                 script {
                   build_result = withEnv(["CONAN_HOOK_ERROR_LEVEL=40"]) {
