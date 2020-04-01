@@ -70,6 +70,7 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
                 sh "conan graph lock ${product} --profile ${profile} --lockfile=${lockfile}"
                 sh "cat ${lockfile}"
                 sh "conan install ${product}  --profile ${profile} --build missing --lockfile=${lockfile}"
+                sh "cat ${lockfile}"
               }
               stage("Start build info: ${params.build_name} ${params.build_number}") { 
                 sh "conan_build_info --v2 start ${params.build_name} ${params.build_number}"
