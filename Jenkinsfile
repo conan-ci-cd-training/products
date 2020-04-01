@@ -24,7 +24,7 @@ def products = [
 
 def affected_products = []
 
-def get_stages(profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, library_branch, artifactory_url) {
+def get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, library_branch, artifactory_url) {
   return {
     stage(profile) {
       node {
@@ -58,18 +58,18 @@ def get_stages(profile, docker_image, config_url, conan_develop_repo, conan_tmp_
               // plus the one we have just created
               def lockfile = "conan.lock"
               def buildInfoFilename = "${profile}.json"
-              stage("Create graph lock for ${params.project_id}") {
-                sh "conan graph lock ${params.project_id}  --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
+              stage("Create graph lock for ${product}") {
+                sh "conan graph lock ${product}  --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
                 sh "cat ${lockfile}"
               }
-              stage("Insert the new revision ${params.reference} in ${params.project_id} graph") {
-                sh "conan install ${params.project_id} --lockfile=${lockfile} --profile ${profile} -r ${conan_develop_repo}"
+              stage("Insert the new revision ${params.reference} in ${product} graph") {
+                sh "conan install ${product} --lockfile=${lockfile} --profile ${profile} -r ${conan_develop_repo}"
                 sh "conan install ${params.reference} --update --profile ${profile} -r ${conan_tmp_repo}"
                 sh "conan search --revisions"
                 //sh "conan remote disable '*'"
-                sh "conan graph lock ${params.project_id} --profile ${profile} --lockfile=${lockfile}"
+                sh "conan graph lock ${product} --profile ${profile} --lockfile=${lockfile}"
                 sh "cat ${lockfile}"
-                sh "conan install ${params.project_id}  --profile ${profile} --build missing --lockfile=${lockfile}"
+                sh "conan install ${product}  --profile ${profile} --build missing --lockfile=${lockfile}"
               }
               stage("Start build info: ${params.build_name} ${params.build_number}") { 
                 sh "conan_build_info --v2 start ${params.build_name} ${params.build_number}"
@@ -143,7 +143,6 @@ pipeline {
               build_order.each { libs ->
                 libs.each { lib ->
                   String require = "${lib[1]}"
-                  String 
                   println "checking if ${require} has ${reference_name} --> affects product ${product.key}"
                   if (require.contains("${reference_name}")) {
                     affected_products.add(product.key)
@@ -152,31 +151,33 @@ pipeline {
                 }
               }
             }
+            println "Affected products:"
+            affected_products.each { prod ->
+              println("${prod}")
+            }
+            println "will be built"
           }
         }
       }
     }
 
-    stage('Build information') {
-      steps {
-        script {
-          echo "Building project '${params.organization}/${params.project_id}'"
+    script {
+      affected_products.each { product ->
+        stage('Build "${product}"') {
+          echo "Building product '${product}'"
           echo " - for changes in '${params.reference}'"
-          echo " - called from: ${params.build_name} ${params.build_number}"
+          echo " - called from: ${params.build_name}, build number: ${params.build_number}"
           echo " - commit: ${params.commit_number} from branch: ${params.library_branch}"
-        }
-      }
-    }
-
-    stage('Build') {
-      agent any
-      steps {
-        script {
-          build_result = withEnv(["CONAN_HOOK_ERROR_LEVEL=40"]) {
-            parallel profiles.collectEntries { profile, docker_image ->
-              ["${profile}": get_stages(profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
+          agent any
+          steps {
+            script {
+              build_result = withEnv(["CONAN_HOOK_ERROR_LEVEL=40"]) {
+                parallel profiles.collectEntries { profile, docker_image ->
+                  ["${profile}": get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
+                }
+              }         
             }
-          }         
+          }
         }
       }
     }
