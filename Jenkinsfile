@@ -133,13 +133,15 @@ pipeline {
               sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
               sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
               sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
-              def reference_name = params.reference.split("#")[0]
+              String reference_name = "${params.reference.split("#")[0]}"
               build_order = readJSON file: bo_file
               // nested list
               build_order.each { libs ->
                 libs.each { lib ->
-                  println "checking if ${lib[1]} has ${reference_name} --> affects product ${product.key}"
-                  if (lib[1].value.indexOf("${reference_name}") != -1) {
+                  String require = "${lib[1]}"
+                  String 
+                  println "checking if ${require} has ${reference_name} --> affects product ${product.key}"
+                  if (require.value.indexOf("${reference_name}") != -1) {
                     affected_products.add(product.key)
                     println "added ${product.key} to affected products"
                   }
