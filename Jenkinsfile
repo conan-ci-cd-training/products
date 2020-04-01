@@ -166,7 +166,7 @@ pipeline {
       agent any
       steps {
         script {          
-          affected_products.each { product ->
+          products_build_result = parallel affected_products.collectEntries { product ->
             stage("Build ${product}") {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
@@ -176,8 +176,10 @@ pipeline {
                 ["${profile}": get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
               }              
             }
+            ["${product}": build_result]
           }
         }
+        println products_build_result
       }
     }
 
