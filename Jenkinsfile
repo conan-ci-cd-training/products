@@ -116,8 +116,12 @@ pipeline {
     stage("Check affected products") {
       steps {
         script {
-          String docker_image = profiles.values().iterator().next()
+          // get the first element of the profiles list
+          // this is just to have a valid profile to use for generating the lockfile
+          // that we will use to get the build-order and check if the products are affected
+          // by the newly created package revision (reference param)
           String profile = profiles.keySet().iterator().next()
+          String docker_image = profiles.get(profile)
           docker.image(docker_image).inside("--net=host") {
             sh "conan config install ${config_url}"
             sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
