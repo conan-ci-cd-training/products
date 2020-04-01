@@ -141,7 +141,7 @@ pipeline {
                   String require = "${lib[1]}"
                   String 
                   println "checking if ${require} has ${reference_name} --> affects product ${product.key}"
-                  if (require.value.indexOf("${reference_name}") != -1) {
+                  if (require.contains("${reference_name}")) {
                     affected_products.add(product.key)
                     println "added ${product.key} to affected products"
                   }
