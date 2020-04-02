@@ -187,17 +187,20 @@ pipeline {
       steps {
         script {
           docker.image("conanio/gcc8").inside("--net=host") {
-            def last_info = ""
-            build_result.each { profile, buildInfo ->
-              writeJSON file: "${profile}.json", json: buildInfo
-              if (last_info != "") {
-                sh "conan_build_info --v2 update ${profile}.json ${last_info} --output-file mergedbuildinfo.json"
+            products_build_result.each { product, result
+              def last_info = ""
+              result.each { profile, buildInfo ->
+                writeJSON file: "${profile}.json", json: buildInfo
+                if (last_info != "") {
+                  sh "conan_build_info --v2 update ${profile}.json ${last_info} --output-file mergedbuildinfo.json"
+                }
+                last_info = "${profile}.json"
               }
-              last_info = "${profile}.json"
-            }                    
-            sh "cat mergedbuildinfo.json"
-            withCredentials([usernamePassword(credentialsId: 'artifactory', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-              sh "conan_build_info --v2 publish --url http://${artifactory_url}:8081/artifactory --user \"\${ARTIFACTORY_USER}\" --password \"\${ARTIFACTORY_PASSWORD}\" mergedbuildinfo.json"
+              println "Merged Build Info for ${product}"
+              sh "cat mergedbuildinfo.json"
+              withCredentials([usernamePassword(credentialsId: 'artifactory', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                sh "conan_build_info --v2 publish --url http://${artifactory_url}:8081/artifactory --user \"\${ARTIFACTORY_USER}\" --password \"\${ARTIFACTORY_PASSWORD}\" mergedbuildinfo.json"
+              }
             }
             // instead of:
             // sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
