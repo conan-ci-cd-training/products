@@ -187,7 +187,7 @@ pipeline {
       steps {
         script {
           docker.image("conanio/gcc8").inside("--net=host") {
-            products_build_result.each { product, result
+            products_build_result.each { product, result ->
               def last_info = ""
               result.each { profile, buildInfo ->
                 writeJSON file: "${profile}.json", json: buildInfo
