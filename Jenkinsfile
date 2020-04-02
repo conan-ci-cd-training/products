@@ -166,7 +166,7 @@ pipeline {
       agent any
       steps {
         script {          
-          products_build_result = parallel affected_products.collectEntries { product ->
+          products_build_result = affected_products.collectEntries { product ->
             stage("Build ${product}") {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
