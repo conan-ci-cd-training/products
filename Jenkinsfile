@@ -124,39 +124,41 @@ pipeline {
           String profile = profiles.keySet().iterator().next()
           String docker_image = profiles.get(profile)
           docker.image(docker_image).inside("--net=host") {
-            sh "conan config install ${config_url}"
-            sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
-            sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
-            withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-              sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
-              sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
-            }
-            products.each { product ->
-              println "name: ${product.key} repo: ${product.value}"
-              def lockfile = "${product.key}.lock"
-              def bo_file = "${product.key}.json"
-              sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
-              sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
-              sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
-              String reference_name = "${params.reference.split("#")[0]}"
-              build_order = readJSON file: bo_file
-              // nested list
-              build_order.each { libs ->
-                libs.each { lib ->
-                  String require = "${lib[1]}"
-                  println "checking if ${require} has ${reference_name} --> affects product ${product.key}"
-                  if (require.contains("${reference_name}")) {
-                    affected_products.add(product.key)
-                    println "added ${product.key} to affected products"
+            withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_cache"]) {
+              sh "conan config install ${config_url}"
+              sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
+              sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
+              withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
+                sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
+              }
+              products.each { product ->
+                println "name: ${product.key} repo: ${product.value}"
+                def lockfile = "${product.key}.lock"
+                def bo_file = "${product.key}.json"
+                sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
+                sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
+                sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
+                String reference_name = "${params.reference.split("#")[0]}"
+                build_order = readJSON file: bo_file
+                // nested list
+                build_order.each { libs ->
+                  libs.each { lib ->
+                    String require = "${lib[1]}"
+                    println "checking if ${require} has ${reference_name} --> affects product ${product.key}"
+                    if (require.contains("${reference_name}")) {
+                      affected_products.add(product.key)
+                      println "added ${product.key} to affected products"
+                    }
                   }
                 }
               }
+              println "Affected products:"
+              affected_products.each { prod ->
+                println("${prod}")
+              }
+              println "will be built"
             }
-            println "Affected products:"
-            affected_products.each { prod ->
-              println("${prod}")
-            }
-            println "will be built"
           }
         }
       }
