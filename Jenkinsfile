@@ -59,17 +59,24 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
               def lockfile = "conan.lock"
               def buildInfoFilename = "${profile}.json"
               stage("Create graph lock for ${product}") {
-                sh "conan graph lock ${product}  --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
-                sh "cat ${lockfile}"
+                // OPTION 1
+                // sh "conan graph lock ${product}  --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
+                // sh "cat ${lockfile}"
               }
               stage("Insert the new revision ${params.reference} in ${product} graph") {
-                sh "conan install ${product} --lockfile=${lockfile} --profile ${profile} -r ${conan_develop_repo}"
-                sh "conan install ${params.reference} --update --profile ${profile} -r ${conan_tmp_repo}"
-                sh "conan search --revisions"
-                //sh "conan remote disable '*'"
-                sh "conan graph lock ${product} --profile ${profile} --lockfile=${lockfile}"
-                sh "cat ${lockfile}"
-                sh "conan install ${product}  --profile ${profile} --build missing --lockfile=${lockfile}"
+                // OPTION 1
+                // sh "conan install ${product} --lockfile=${lockfile} --profile ${profile} -r ${conan_develop_repo}"
+                // sh "conan install ${params.reference} --update --profile ${profile} -r ${conan_tmp_repo}"
+                // sh "conan search --revisions"
+                // //sh "conan remote disable '*'"
+                // sh "conan graph lock ${product} --profile ${profile} --lockfile=${lockfile}"
+                // sh "cat ${lockfile}"
+                // sh "conan install ${product}  --profile ${profile} --build missing --lockfile=${lockfile}"
+                // sh "cat ${lockfile}"
+
+                // SHORT OPTION
+                sh "conan install ${params.reference} --profile ${profile} -r ${conan_tmp_repo}"
+                sh "conan install ${product} --lockfile=${lockfile} --profile ${profile} -r ${conan_develop_repo} --build missing"
                 sh "cat ${lockfile}"
               }
               stage("Start build info: ${params.build_name} ${params.build_number}") { 
