@@ -76,7 +76,8 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
 
                 // SHORT OPTION
                 sh "conan install ${params.reference} --profile ${profile} -r ${conan_tmp_repo}"
-                sh "conan install ${product} --lockfile=${lockfile} --profile ${profile} -r ${conan_develop_repo} --build missing"
+                sh "conan install ${product} --profile ${profile} -r ${conan_develop_repo} --build missing"
+                sh "mv conan.lock ${lockfile}"
                 sh "cat ${lockfile}"
               }
               stage("Start build info: ${params.build_name} ${params.build_number}") { 
