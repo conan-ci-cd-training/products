@@ -190,9 +190,9 @@ pipeline {
             if (library_branch == "develop") {       
               //sh "curl -fL https://getcli.jfrog.io | sh"
               withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                sh "./jfrog rt c artifactory --url=http://${artifactory_url}:8081/artifactory --user=\"\${ARTIFACTORY_USER}\" --password=\"\${ARTIFACTORY_PASSWORD}\""
+                sh "jfrog rt c artifactory --url=http://${artifactory_url}:8081/artifactory --user=\"\${ARTIFACTORY_USER}\" --password=\"\${ARTIFACTORY_PASSWORD}\""
               }
-              sh "./jfrog rt bpr \"${params.build_name}\" \"${params.build_number}\" conan-develop --include-dependencies"
+              sh "jfrog rt bpr \"${params.build_name}\" \"${params.build_number}\" conan-develop --include-dependencies"
             }        
           }
         }
