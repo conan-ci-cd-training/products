@@ -108,16 +108,13 @@ pipeline {
             withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_cache"]) {
               sh "conan config install ${config_url}"
               sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
-              sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
               withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                 sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
-                sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
               }
               products.each { product ->
                 println "name: ${product.key} repo: ${product.value}"
                 def lockfile = "${product.key}.lock"
                 def bo_file = "${product.key}.json"
-                sh "conan install ${product.key} --profile ${profile} -r ${conan_develop_repo}"
                 sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
                 sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
                 String reference_name = "${params.reference.split("#")[0]}"
