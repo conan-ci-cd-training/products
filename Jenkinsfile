@@ -169,6 +169,7 @@ pipeline {
               // promote libraries to develop
               if (library_branch == "develop") {       
                 withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_cache"]) {
+                  sh "conan config install ${config_url}"
                   sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
                   sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
                   withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
