@@ -192,11 +192,12 @@ pipeline {
             // instead of:
             // sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
             if (library_branch == "develop") {       
-              //sh "curl -fL https://getcli.jfrog.io | sh"
+              // we have to install this because it's not preinstalled in conan docker images
+              sh "curl -fL https://getcli.jfrog.io | sh"
               withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                sh "jfrog rt c artifactory --url=http://${artifactory_url}:8081/artifactory --user=\"\${ARTIFACTORY_USER}\" --password=\"\${ARTIFACTORY_PASSWORD}\""
+                sh "./jfrog rt c artifactory --url=http://${artifactory_url}:8081/artifactory --user=\"\${ARTIFACTORY_USER}\" --password=\"\${ARTIFACTORY_PASSWORD}\""
               }
-              sh "jfrog rt bpr \"${params.build_name}\" \"${params.build_number}\" conan-develop --include-dependencies"
+              sh "./jfrog rt bpr \"${params.build_name}\" \"${params.build_number}\" conan-develop --include-dependencies"
             }        
           }
         }
