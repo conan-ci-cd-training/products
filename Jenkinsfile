@@ -51,12 +51,15 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
               stage("Insert the new revision ${params.reference} in ${product} graph") {
                 // this is a workaround, because installing with a specific reference does not create a lockfile
                 // and also, we need the information of the build nodes
-                sh "conan install ${params.reference} --profile ${profile} -r ${conan_tmp_repo}"
+                sh "conan graph lock ${product}  --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
                 // develop should be consistent without missing packages
                 sh "conan install ${product} --profile ${profile} -r ${conan_develop_repo}"
+                // now install the newly created revision of the library with -- update
+                sh "conan install ${params.reference} --profile ${profile} -r ${conan_tmp_repo} --update"
                 // now the cache is populated with exactly the packages we want
                 sh "conan graph lock ${product} --profile ${profile} --lockfile=${lockfile}"
-                sh "conan install ${product} --profile ${profile} --build missing --lockfile=${lockfile}"
+                // now that we have a lockfile as an input conan install will update the build nodes
+                sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
                 sh "cat ${lockfile}"
               }
               stage("Start build info: ${params.build_name} ${params.build_number}") { 
