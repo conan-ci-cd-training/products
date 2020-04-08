@@ -179,9 +179,9 @@ pipeline {
               result.each { profile, buildInfo ->
                 writeJSON file: "${profile}.json", json: buildInfo
                 if (last_info != "") {
-                  sh "conan_build_info --v2 update ${profile}.json ${last_info} --output-file mergedbuildinfo.json"
+                  sh "conan_build_info --v2 update ${last_info} ${profile}.json --output-file mergedbuildinfo.json"
                 }
-                last_info = "${profile}.json"
+                last_info = last_info=="" ? "${profile}.json" : "mergedbuildinfo.json"
               }
             }
             println "Merged Build Info for all the products"
