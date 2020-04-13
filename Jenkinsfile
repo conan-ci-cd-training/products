@@ -59,8 +59,8 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
                 sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
                 sh "cat ${lockfile}"
               }
-              stage("Start build info: ${params.build_name} ${params.build_number}") { 
-                sh "conan_build_info --v2 start ${params.build_name} ${params.build_number}"
+              stage("Start build info: ${env.JOB_NAME} ${env.BUILD_NUMBER}") { 
+                sh "conan_build_info --v2 start ${env.JOB_NAME} ${env.BUILD_NUMBER}"
               }
               stage("Upload") {
                 // we upload to tmp, and later if everything is OK will promote to develop
@@ -161,6 +161,7 @@ pipeline {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
               echo " - called from: ${params.build_name}, build number: ${params.build_number}"
+              echo " - current build name: ${env.JOB_NAME}, build number: ${env.BUILD_NUMBER}"
               echo " - commit: ${params.commit_number} from branch: ${params.library_branch}"              
               build_result = parallel profiles.collectEntries { profile, docker_image ->
                 ["${profile}": get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
@@ -196,9 +197,13 @@ pipeline {
                   withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                     sh "conan_build_info --v2 publish --url http://${artifactory_url}:8081/artifactory --user \"\${ARTIFACTORY_USER}\" --password \"\${ARTIFACTORY_PASSWORD}\" mergedbuildinfo.json"
                   }
-                  // promote with the build info
+                  // promote with the build info from the library
                   withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/build/promote/${params.build_name}/${params.build_number}\" -H \"Content-type: application/json\" -d '{\"dryRun\" : false, \"sourceRepo\" : \"conan-tmp\", \"targetRepo\" : \"conan-develop\", \"copy\": true, \"artifacts\" : true, \"dependencies\" : true}'"
+                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/build/promote/${params.build_name}/${params.build_number}\" -H \"Content-type: application/json\" -d '{\"dryRun\" : false, \"sourceRepo\" : \"conan-tmp\", \"targetRepo\" : \"conan-develop\", \"copy\": false, \"artifacts\" : true, \"dependencies\" : false}'"
+                  }
+                  // promote with the build info from this pipeline
+                  withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/build/promote/${env.JOB_NAME}/${env.BUILD_NUMBER}\" -H \"Content-type: application/json\" -d '{\"dryRun\" : false, \"sourceRepo\" : \"conan-tmp\", \"targetRepo\" : \"conan-develop\", \"copy\": false, \"artifacts\" : true, \"dependencies\" : false}'"
                   }
                 }
                 finally {
