@@ -198,12 +198,12 @@ pipeline {
                     sh "conan_build_info --v2 publish --url http://${artifactory_url}:8081/artifactory --user \"\${ARTIFACTORY_USER}\" --password \"\${ARTIFACTORY_PASSWORD}\" mergedbuildinfo.json"
                   }
                   // promote with the build info from the library
-                  withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/build/promote/${params.build_name}/${params.build_number}\" -H \"Content-type: application/json\" -d '{\"dryRun\" : false, \"sourceRepo\" : \"conan-tmp\", \"targetRepo\" : \"conan-develop\", \"copy\": false, \"artifacts\" : true, \"dependencies\" : false}'"
-                  }
+                  // withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                  //   sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/build/promote/${params.build_name}/${params.build_number}\" -H \"Content-type: application/json\" -d '{\"dryRun\" : false, \"sourceRepo\" : \"conan-tmp\", \"targetRepo\" : \"conan-develop\", \"copy\": false, \"artifacts\" : true, \"dependencies\" : false}'"
+                  // }
                   // promote with the build info from this pipeline
                   withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/build/promote/${env.JOB_NAME}/${env.BUILD_NUMBER}\" -H \"Content-type: application/json\" -d '{\"dryRun\" : false, \"sourceRepo\" : \"conan-tmp\", \"targetRepo\" : \"conan-develop\", \"copy\": false, \"artifacts\" : true, \"dependencies\" : false}'"
+                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/build/promote/${env.JOB_NAME}/${env.BUILD_NUMBER}\" -H \"Content-type: application/json\" -d '{\"dryRun\" : false, \"sourceRepo\" : \"conan-tmp\", \"targetRepo\" : \"conan-develop\", \"copy\": false, \"artifacts\" : true, \"dependencies\" : true}'"
                   }
                 }
                 finally {
