@@ -17,6 +17,9 @@ def profiles = [
 
 def build_result = [:]
 
+def user = "mycompany"
+def channel = "stable"
+
 def products = [
   "App/1.0@mycompany/stable": "https://github.com/conan-ci-cd-training/App.git",	
   "App2/1.0@mycompany/stable": "https://github.com/conan-ci-cd-training/App2.git"	
@@ -200,10 +203,11 @@ pipeline {
                   references_to_copy.unique()
                   references_to_copy.each { reference ->
                     echo "copy ${reference} to conan-develop"
-                    def name = reference.split(":")[0].split("#")[0]
+                    def name = reference.split(":")[0].split("#")[0].split("@")[0]
                     def revision = reference.split(":")[0].split("#")[1]
+                    def 
                     withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/conan/${conan_tmp_repo}/${name}/${revision}?to=conan/${conan_develop_repo}/${name}/${revision}\""
+                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name}/${channel}/${revision}?to=${conan_develop_repo}/${user}/${name}/${channel}/${revision}\""
                     } 
                   }
                 }
