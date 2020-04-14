@@ -182,14 +182,30 @@ pipeline {
                       sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
                       sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
                   }
+                  // some kind of manual promotion
+                  // take all the lockfiles and copy all the revisions marked as built to conan-develop
+                  // ALSO copy the revision we injected here from the caller pipeline
+                  def references_to_copy = []
                   products_build_result.each { product, result ->
                     result.each { profile, lockfile ->
-                      writeJSON file: "${profile}.lock", json: lockfile
-                      sh "cat ${profile}.lock"
-                      sh "conan install ${product} --lockfile=${profile}.lock"
+                      def nodes = lockfile['graph_lock'].nodes
+                      nodes.each { id, node_info ->
+                        if (node_info.modified) {
+                          references_to_copy.add(node_info.pref)
+                        }
+                      }
                     }
                   }
-                  sh "conan upload '*' --all -r ${conan_develop_repo} --confirm  --force"
+                  references_to_copy.add(params.reference)
+                  references_to_copy.unique()
+                  references_to_copy.each { reference ->
+                    echo "copy ${reference} to conan-develop"
+                    def name = reference.split(":")[0].split("#")[0]
+                    def revision = reference.split(":")[0].split("#")[1]
+                    withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/conan/${conan_tmp_repo}/${name}/${revision}?to=conan/${conan_develop_repo}/${name}/${revision}\""
+                    } 
+                  }
                 }
                 finally {
                   deleteDir()
