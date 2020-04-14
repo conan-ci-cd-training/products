@@ -202,6 +202,8 @@ pipeline {
                   references_to_copy.unique()
 
                   // first move the new revision of libB we have just created
+                  // TODO: better to take from the lockfiles the package revisions of libB with the new revision
+                  // to make sure we don't put package revisions we don't want in the develop repo
                   echo "copy ${params.reference} to conan-develop"
                   def name = params.reference.split("#")[0].split("@")[0]
                   def rrev = params.reference.split("#")[1]
