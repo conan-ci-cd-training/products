@@ -194,7 +194,7 @@ pipeline {
                       def nodes = lockfile['graph_lock'].nodes
                       nodes.each { id, node_info ->
                         if (node_info.modified) {
-                          def rref = node_info.pref.reference.split(":")[0]
+                          def rref = node_info.pref.split(":")[0]
                           references_to_copy.add(rref)
                         }
                       }
