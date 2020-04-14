@@ -194,20 +194,33 @@ pipeline {
                       def nodes = lockfile['graph_lock'].nodes
                       nodes.each { id, node_info ->
                         if (node_info.modified) {
-                          def rref = node_info.pref.split(":")[0]
-                          references_to_copy.add(rref)
+                          references_to_copy.add(node_info.pref)
                         }
                       }
                     }
                   }
-                  references_to_copy.add(params.reference.split(":")[0])
                   references_to_copy.unique()
-                  references_to_copy.each { rrev ->
+
+                  // first move the new revision of libB we have just created
+                  echo "copy ${params.reference} to conan-develop"
+                  def name = params.reference.split("#")[0].split("@")[0]
+                  def revision = params.reference.split("#")[1]
+                  withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/move/${conan_tmp_repo}/${user}/${name}/${channel}/${revision}?to=${conan_develop_repo}/${user}/${name}/${channel}\""
+                  }                   
+
+                  // now move all the package references that were build
+                  references_to_copy.each { pref ->
                     echo "copy ${rrev} to conan-develop"
-                    def name = rrev.split("#")[0].split("@")[0]
-                    def revision = rrev.split("#")[1]
+                    def name = pref.split("#")[0].split("@")[0]
+                    def rrev = pref.split("#")[1].split(":")[0]
+                    def pkgid = pref.split("#")[1].split(":")[1]
+                    def prev = pref.split("#")[2]
                     withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name}/${channel}/${revision}?to=${conan_develop_repo}/${user}/${name}/${channel}\""
+                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name}/${channel}/${revision}/export?to=${conan_develop_repo}/${user}/${name}/${channel}/${revision}\""
+                    } 
+                    withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name}/${channel}/${revision}/package/${pkgid}/${prev}?to=${conan_develop_repo}/${user}/${name}/${channel}/${revision}/package/${pkgid}\""
                     } 
                   }
                 }
