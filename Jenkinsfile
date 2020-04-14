@@ -206,7 +206,6 @@ pipeline {
                     echo "copy ${rrev} to conan-develop"
                     def name = rrev.split("#")[0].split("@")[0]
                     def revision = rrev.split("#")[1]
-                    def 
                     withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                       sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/move/${conan_tmp_repo}/${user}/${name}/${channel}/${revision}?to=${conan_develop_repo}/${user}/${name}/${channel}/${revision}\""
                     } 
