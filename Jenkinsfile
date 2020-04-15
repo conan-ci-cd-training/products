@@ -11,8 +11,8 @@ def build_order_file = "bo.json"
 def build_order = null
 
 def profiles = [
-  "conanio-gcc8": "conanio/gcc8",	
-  "conanio-gcc7": "conanio/gcc7"	
+  "debug-gcc6": "conanio/gcc6",	
+  "release-gcc6": "conanio/gcc6"	
 ]
 
 def build_result = [:]
@@ -174,7 +174,7 @@ pipeline {
     stage("Promote") {
       steps {
         script {
-          docker.image("conanio/gcc8").inside("--net=host") {
+          docker.image("conanio/gcc6").inside("--net=host") {
             // promote libraries to develop
             if (library_branch == "develop") {       
               withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_cache"]) {
