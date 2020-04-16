@@ -98,63 +98,64 @@ pipeline {
 
   stages {
 
-    stage("Check affected products") {
-      steps {
-        script {
-          // get the first element of the profiles list
-          // this is just to have a valid profile to use for generating the lockfile
-          // that we will use to get the build-order and check if the products are affected
-          // by the newly created package revision (reference param)
-          String profile = profiles.keySet().iterator().next()
-          String docker_image = profiles.get(profile)
-          docker.image(docker_image).inside("--net=host") {
-            withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_cache"]) {
-              try {
-                sh "conan config install ${config_url}"
-                sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
-                withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                  sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
-                }
-                products.each { product ->
-                  println "name: ${product.key} repo: ${product.value}"
-                  def lockfile = "${product.key}.lock"
-                  def bo_file = "${product.key}.json"
-                  sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
-                  sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
-                  String reference_name = "${params.reference.split("#")[0]}"
-                  build_order = readJSON file: bo_file
-                  // nested list
-                  build_order.each { libs ->
-                    libs.each { lib ->
-                      String require = "${lib[1]}"
-                      println "checking if ${require} has ${reference_name} --> affects product ${product.key}"
-                      if (require.contains("${reference_name}")) {
-                        affected_products.add(product.key)
-                        println "added ${product.key} to affected products"
-                      }
-                    }
-                  }
-                }
-                println "Affected products:"
-                affected_products.each { prod ->
-                  println("${prod}")
-                }
-                println "will be built"
-              }
-              finally {
-                  deleteDir()
-              }
-            }
-          }
-        }
-      }
-    }
+    // stage("Check affected products") {
+    //   steps {
+    //     script {
+    //       // get the first element of the profiles list
+    //       // this is just to have a valid profile to use for generating the lockfile
+    //       // that we will use to get the build-order and check if the products are affected
+    //       // by the newly created package revision (reference param)
+    //       String profile = profiles.keySet().iterator().next()
+    //       String docker_image = profiles.get(profile)
+    //       docker.image(docker_image).inside("--net=host") {
+    //         withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_cache"]) {
+    //           try {
+    //             sh "conan config install ${config_url}"
+    //             sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
+    //             withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+    //               sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
+    //             }
+    //             products.each { product ->
+    //               println "name: ${product.key} repo: ${product.value}"
+    //               def lockfile = "${product.key}.lock"
+    //               def bo_file = "${product.key}.json"
+    //               sh "conan graph lock ${product.key} --profile ${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
+    //               sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
+    //               String reference_name = "${params.reference.split("#")[0]}"
+    //               build_order = readJSON file: bo_file
+    //               // nested list
+    //               build_order.each { libs ->
+    //                 libs.each { lib ->
+    //                   String require = "${lib[1]}"
+    //                   println "checking if ${require} has ${reference_name} --> affects product ${product.key}"
+    //                   if (require.contains("${reference_name}")) {
+    //                     affected_products.add(product.key)
+    //                     println "added ${product.key} to affected products"
+    //                   }
+    //                 }
+    //               }
+    //             }
+    //             println "Affected products:"
+    //             affected_products.each { prod ->
+    //               println("${prod}")
+    //             }
+    //             println "will be built"
+    //           }
+    //           finally {
+    //               deleteDir()
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
 
     stage('Build affected products') {
       agent any
       steps {
         script {          
-          products_build_result = affected_products.collectEntries { product ->
+          //products_build_result = affected_products.collectEntries { product ->
+          products_build_result = products.collectEntries { product, repo ->
             stage("Build ${product}") {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
