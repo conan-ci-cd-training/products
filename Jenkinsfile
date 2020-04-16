@@ -72,23 +72,21 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
                   affected_product = true
                 }
               }
-
-              stage("Build ${product}")
-              {
-                when {expression {return affected_product}}                
-                // now that we have a lockfile as an input conan install will update the build nodes
-                sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
-                sh "cat ${lockfile}"
+              if (affected_product) {
+                stage("Build ${product}")
+                {
+                  // now that we have a lockfile as an input conan install will update the build nodes
+                  sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
+                  sh "cat ${lockfile}"
+                }
+                stage("Upload") {
+                  // we upload to tmp, and later if everything is OK will promote to develop
+                  sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
+                }
+                stage("Read lockfile") {
+                  lock_contents = readJSON(file: lockfile)
+                }                            
               }
-              stage("Upload") {
-                when {expression {return affected_product}}                
-                // we upload to tmp, and later if everything is OK will promote to develop
-                sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
-              }
-              stage("Read lockfile") {
-                when {expression {return affected_product}}                
-                lock_contents = readJSON(file: lockfile)
-              }                            
               return lock_contents              
             }
             finally {
