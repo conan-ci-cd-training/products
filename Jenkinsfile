@@ -77,15 +77,13 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
                 {
                   // now that we have a lockfile as an input conan install will update the build nodes
                   sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
+                  lock_contents = readJSON(file: lockfile)
                   sh "cat ${lockfile}"
                 }
-                stage("Upload") {
+                stage("Upload to conan-tmp") {
                   // we upload to tmp, and later if everything is OK will promote to develop
                   sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
                 }
-                stage("Read lockfile") {
-                  lock_contents = readJSON(file: lockfile)
-                }                            
               }
               return lock_contents              
             }
@@ -162,6 +160,15 @@ pipeline {
                             references_to_copy.add(node_info.pref)
                           }
                         }
+                        stage("Upload ${product} lockfile for ${profile}") {
+                          writeJSON file: "conan.lock", json: lockfile
+                          def lockfile_url = "http://${artifactory_url}:8081/artifactory/${artifactory_metadata_repo}/${product}/${profile}/conan.lock"
+                          def lockfile_sha1 = sha1(file: "conan.lock")
+                          withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                            sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" --header 'X-Checksum-Sha1:'${lockfile_sha1} --header 'Content-Type: application/json' ${lockfile_url} --upload-file conan.lock"
+                          }                                
+                          lock_contents = readJSON(file: lockfile)
+                        }                            
                       }
                     }
                   }
