@@ -229,7 +229,7 @@ pipeline {
                       sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name_version}/${channel}/${rrev}/export?to=${conan_develop_repo}/${user}/${name_version}/${channel}/${rrev}\""
                     } 
                     withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}?to=${conan_develop_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}\""
+                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}?to=${conan_develop_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}\""
                     } 
                   }
                 }
