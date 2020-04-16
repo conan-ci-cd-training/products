@@ -50,6 +50,9 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
               // create the graph lock for the latest versions of dependencies in develop repo and with the
               // latest revision of the library that trigered this pipeline
               def lockfile = "conan.lock"
+              def bo_file = "build_order.json"
+              def affected_product = false
+              def lock_contents = [:]
               stage("Insert the new revision ${params.reference} in ${product} graph") {
                 // this is a workaround, because installing with a specific reference does not create a lockfile
                 // and also, we need the information of the build nodes
@@ -61,15 +64,22 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
                 sh "conan download ${params.reference} -r ${conan_tmp_repo} --recipe"
                 sh "conan graph lock ${product} --profile=${profile} --lockfile=${lockfile} -r ${conan_develop_repo}"
 
-                // now that we have a lockfile as an input conan install will update the build nodes
-                sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
-                sh "cat ${lockfile}"
+                // check if the build-order is empty, this product may not be affected by the changes
+                // or maybe we don't have to build anything if we are relaunching the builds
+                sh "conan graph build-order ${lockfile} --json=${bo_file} --build missing"
+                build_order = readJSON(file: bo_file)
+                if (!build_order.isEmpty()) {
+                  // now that we have a lockfile as an input conan install will update the build nodes
+                  sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
+                  sh "cat ${lockfile}"
+                  affected_product = true
+                }
               }
-              stage("Upload") {
+              stage("Upload", affected_product) {
                 // we upload to tmp, and later if everything is OK will promote to develop
                 sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
               }
-              stage("Read lockfile") {
+              stage("Read lockfile", affected_product) {
                   lock_contents = readJSON(file: lockfile)
               }                            
               return lock_contents              
@@ -193,10 +203,12 @@ pipeline {
                   def references_to_copy = []
                   products_build_result.each { product, result ->
                     result.each { profile, lockfile ->
-                      def nodes = lockfile['graph_lock'].nodes
-                      nodes.each { id, node_info ->
-                        if (node_info.modified) {
-                          references_to_copy.add(node_info.pref)
+                    if (!json.isEmpty()) {
+                        def nodes = lockfile['graph_lock'].nodes
+                        nodes.each { id, node_info ->
+                          if (node_info.modified) {
+                            references_to_copy.add(node_info.pref)
+                          }
                         }
                       }
                     }
