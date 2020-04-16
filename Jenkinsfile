@@ -162,12 +162,12 @@ pipeline {
                         }
                         stage("Upload ${product} lockfile for ${profile}") {
                           writeJSON file: "conan.lock", json: lockfile
-                          def lockfile_url = "http://${artifactory_url}:8081/artifactory/${artifactory_metadata_repo}/${product}/${profile}/conan.lock"
+                          def product_path = product.replace("@", "/")
+                          def lockfile_url = "http://${artifactory_url}:8081/artifactory/${artifactory_metadata_repo}/${product_path}/${profile}/conan.lock"
                           def lockfile_sha1 = sha1(file: "conan.lock")
                           withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                             sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" --header 'X-Checksum-Sha1:'${lockfile_sha1} --header 'Content-Type: application/json' ${lockfile_url} --upload-file conan.lock"
                           }                                
-                          lock_contents = readJSON(file: lockfile)
                         }                            
                       }
                     }
