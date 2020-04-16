@@ -2,7 +2,7 @@ import groovy.json.JsonOutput
 
 def config_url = "https://github.com/conan-ci-cd-training/settings.git"
 
-def artifactory_metadata_repo = "conan-develop-metadata"
+def artifactory_metadata_repo = "conan-metadata"
 def conan_develop_repo = "conan-develop"
 def conan_tmp_repo = "conan-tmp"
 def artifactory_url = (env.ARTIFACTORY_URL != null) ? "${env.ARTIFACTORY_URL}" : "jfrog.local"
