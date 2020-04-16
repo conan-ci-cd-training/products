@@ -208,7 +208,7 @@ pipeline {
                   def references_to_copy = []
                   products_build_result.each { product, result ->
                     result.each { profile, lockfile ->
-                    if (!json.isEmpty()) {
+                    if (lockfile.size()>0) {
                         def nodes = lockfile['graph_lock'].nodes
                         nodes.each { id, node_info ->
                           if (node_info.modified) {
