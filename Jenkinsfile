@@ -68,7 +68,7 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
                 // or maybe we don't have to build anything if we are relaunching the builds
                 sh "conan graph build-order ${lockfile} --json=${bo_file} --build missing"
                 build_order = readJSON(file: bo_file)
-                if (!build_order.isEmpty()) {
+                if (build_order.size()>0) {
                   // now that we have a lockfile as an input conan install will update the build nodes
                   sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
                   sh "cat ${lockfile}"
