@@ -53,7 +53,7 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
               def bo_file = "build_order.json"
               def affected_product = false
               def lock_contents = [:]
-              stage("Insert the new revision ${params.reference} in ${product} graph") {
+              stage("Check if the new revision ${params.reference} is in ${product} graph") {
                 // this is a workaround, because installing with a specific reference does not create a lockfile
                 // and also, we need the information of the build nodes
                 // develop should be consistent without missing packages
@@ -69,18 +69,25 @@ def get_stages(product, profile, docker_image, config_url, conan_develop_repo, c
                 sh "conan graph build-order ${lockfile} --json=${bo_file} --build missing"
                 build_order = readJSON(file: bo_file)
                 if (build_order.size()>0) {
-                  // now that we have a lockfile as an input conan install will update the build nodes
-                  sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
-                  sh "cat ${lockfile}"
                   affected_product = true
                 }
               }
-              stage("Upload", affected_product) {
+
+              stage("Build ${product}")
+              {
+                when {expression {return affected_product}}                
+                // now that we have a lockfile as an input conan install will update the build nodes
+                sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
+                sh "cat ${lockfile}"
+              }
+              stage("Upload") {
+                when {expression {return affected_product}}                
                 // we upload to tmp, and later if everything is OK will promote to develop
                 sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
               }
-              stage("Read lockfile", affected_product) {
-                  lock_contents = readJSON(file: lockfile)
+              stage("Read lockfile") {
+                when {expression {return affected_product}}                
+                lock_contents = readJSON(file: lockfile)
               }                            
               return lock_contents              
             }
