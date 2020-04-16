@@ -215,11 +215,15 @@ pipeline {
 
                   // now move all the package references that were build
                   references_to_copy.each { pref ->
-                    echo "copy ${rrev} to conan-develop"
+                    echo "copy ${pref} to conan-develop"
                     name = pref.split("#")[0].split("@")[0]
                     rrev = pref.split("#")[1].split(":")[0]
                     def pkgid = pref.split("#")[1].split(":")[1]
                     def prev = pref.split("#")[2]
+                    echo "copy name: ${name} to conan-develop"
+                    echo "copy rrev: ${rrev} to conan-develop"
+                    echo "copy pkgid: ${pkgid} to conan-develop"
+                    echo "copy prev: ${prev} to conan-develop"
                     withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                       sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name}/${channel}/${rrev}/export?to=${conan_develop_repo}/${user}/${name}/${channel}/${rrev}\""
                     } 
