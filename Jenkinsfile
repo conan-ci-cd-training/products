@@ -172,15 +172,18 @@ pipeline {
                   }
                   references_to_copy.unique()
 
-                  // first move the new revision of libB we have just created
-                  // TODO: better to take from the lockfiles the package revisions of libB with the new revision
+                  // first move the new revision of the lib we have just created
+                  // TODO: better to take from the lockfiles the package revisions of lib with the new revision
                   // to make sure we don't put package revisions we don't want in the develop repo
-                  echo "copy ${params.reference} to conan-develop"
-                  def name = params.reference.split("#")[0].split("@")[0]
-                  def rrev = params.reference.split("#")[1]
-                  withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                    sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name}/${channel}/${rrev}?to=${conan_develop_repo}/${user}/${name}/${channel}\""
-                  }                   
+                  // now we check just getting the references_to_copy size, if size not 0 means we had to rebuild something
+                  if (references_to_copy.size()>0) {
+                    echo "copy ${params.reference} to conan-develop"
+                    def name = params.reference.split("#")[0].split("@")[0]
+                    def rrev = params.reference.split("#")[1]
+                    withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${conan_tmp_repo}/${user}/${name}/${channel}/${rrev}?to=${conan_develop_repo}/${user}/${name}/${channel}\""
+                    }                   
+                  }
 
                   // now move all the package references that were build
                   references_to_copy.each { pref ->
