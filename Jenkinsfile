@@ -153,7 +153,7 @@ pipeline {
                   def references_to_copy = []
                   products_build_result.each { product, result ->
                     result.each { profile, lockfile ->
-                    if (lockfile.size()>0) {
+                      if (lockfile.size()>0) {
                         def nodes = lockfile['graph_lock'].nodes
                         nodes.each { id, node_info ->
                           if (node_info.modified) {
@@ -163,8 +163,10 @@ pipeline {
                         stage("Upload ${product} lockfile for ${profile}") {
                           writeJSON file: "conan.lock", json: lockfile
                           def lockfile_url = "http://${artifactory_url}:8081/artifactory/${artifactory_metadata_repo}/${env.JOB_NAME}/${env.BUILD_NUMBER}/${product}/${profile}/conan.lock"
+                          echo "${lockfile_url}"
+                          sh "printenv"
                           withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                              sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X PUT ${lockfile_url} -T conan.lock"
+                            sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X PUT ${lockfile_url} -T conan.lock"
                           }                                  
                         }                            
                       }
