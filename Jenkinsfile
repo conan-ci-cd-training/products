@@ -99,10 +99,6 @@ pipeline {
 
   parameters {
     string(name: 'reference',)
-    string(name: 'organization',)
-    string(name: 'build_name',)
-    string(name: 'build_number',)
-    string(name: 'commit_number',)
     string(name: 'library_branch',)
   }
 
@@ -115,8 +111,6 @@ pipeline {
             stage("Build ${product}") {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
-              echo " - called from: ${params.build_name}, build number: ${params.build_number}"
-              echo " - commit: ${params.commit_number} from branch: ${params.library_branch}"              
               build_result = parallel profiles.collectEntries { profile, docker_image ->
                 ["${profile}": get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
               }              
