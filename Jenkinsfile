@@ -1,16 +1,16 @@
 import groovy.json.JsonOutput
 
-def config_url = "https://github.com/conan-ci-cd-training/settings.git"
+config_url = "https://github.com/conan-ci-cd-training/settings.git"
 
-def artifactory_metadata_repo = "conan-metadata"
-def conan_develop_repo = "conan-develop"
-def conan_tmp_repo = "conan-tmp"
-def artifactory_url = (env.ARTIFACTORY_URL != null) ? "${env.ARTIFACTORY_URL}" : "jfrog.local"
+artifactory_metadata_repo = "conan-metadata"
+conan_develop_repo = "conan-develop"
+conan_tmp_repo = "conan-tmp"
+artifactory_url = (env.ARTIFACTORY_URL != null) ? "${env.ARTIFACTORY_URL}" : "jfrog.local"
 
-def build_order_file = "bo.json"
-def build_order = null
+build_order_file = "bo.json"
+build_order = null
 
-def profiles = [
+profiles = [
   "debug-gcc6": "conanio/gcc6",	
   "release-gcc6": "conanio/gcc6"	
 ]
@@ -24,7 +24,7 @@ def products = ["App/1.0@mycompany/stable", "App2/1.0@mycompany/stable"]
 
 def affected_products = []
 
-def get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, library_branch, artifactory_url) {
+def get_stages(product, profile, docker_image) {
   return {
     stage(profile) {
       node {
@@ -112,7 +112,7 @@ pipeline {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
               build_result = parallel profiles.collectEntries { profile, docker_image ->
-                ["${profile}": get_stages(product, profile, docker_image, config_url, conan_develop_repo, conan_tmp_repo, params.library_branch, artifactory_url)]
+                ["${profile}": get_stages(product, profile, docker_image)]
               }              
             }
             ["${product}": build_result]
