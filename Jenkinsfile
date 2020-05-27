@@ -15,14 +15,14 @@ profiles = [
   "release-gcc6": "conanio/gcc6"	
 ]
 
-def build_result = [:]
+build_result = [:]
 
-def user = "mycompany"
-def channel = "stable"
+user = "mycompany"
+channel = "stable"
 
-def products = ["App/1.0@mycompany/stable", "App2/1.0@mycompany/stable"]
+products = ["App/1.0@mycompany/stable", "App2/1.0@mycompany/stable"]
 
-def affected_products = []
+affected_products = []
 
 def get_stages(product, profile, docker_image) {
   return {
