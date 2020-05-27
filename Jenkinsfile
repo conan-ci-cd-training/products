@@ -29,13 +29,10 @@ def get_stages(product, profile, docker_image) {
     stage(profile) {
       node {
         docker.image(docker_image).inside("--net=host") {
-          echo "Inside the docker"
+          echo "Inside docker image: ${docker_image}"
           withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_home"]) {
             try {
               stage("Configure conan") {
-                sh "printenv"
-                //sh 'rm -rf "${CONAN_USER_HOME}"'
-                sh "conan --version"
                 sh "conan config install ${config_url}"
                 sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
                 sh "conan remote add ${conan_tmp_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_tmp_repo}" // the namme of the repo is the same that the arttifactory key
@@ -51,10 +48,7 @@ def get_stages(product, profile, docker_image) {
               def affected_product = false
               def lock_contents = [:]
               stage("Check if the new revision ${params.reference} is in ${product} graph") {
-                // this is a workaround, because installing with a specific reference does not create a lockfile
-                // and also, we need the information of the build nodes
-                // develop should be consistent without missing packages
-                
+
                 // install just the recipe for the new revision of the lib and then resolve graph with develop repo
                 // we don't want to bring binaries at this moment, this could be just a agent that
                 // then sends lockfiles to other nodes to build them
@@ -77,9 +71,12 @@ def get_stages(product, profile, docker_image) {
                   lock_contents = readJSON(file: lockfile)
                   sh "cat ${lockfile}"
                 }
+                // In the case this job was triggered after a merge to the library's develop branch
+                // we upload to tmp, and later if everything is OK will promote to develop
                 stage("Upload to conan-tmp") {
-                  // we upload to tmp, and later if everything is OK will promote to develop
-                  sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
+                  if(library_branch == "develop") {
+                    sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
+                  }
                 }
               }
               return lock_contents              
