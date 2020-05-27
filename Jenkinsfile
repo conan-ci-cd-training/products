@@ -74,7 +74,7 @@ def get_stages(product, profile, docker_image) {
                 // In the case this job was triggered after a merge to the library's develop branch
                 // we upload to tmp, and later if everything is OK will promote to develop
                 stage("Upload to conan-tmp") {
-                  if(library_branch == "develop") {
+                  if(params.library_branch == "develop") {
                     sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
                   }
                 }
@@ -120,7 +120,7 @@ pipeline {
     }
 
     stage("Upload to develop repo") {
-      when {expression { return library_branch == "develop" }}
+      when {expression { return params.library_branch == "develop" }}
       steps {
         script {
           docker.image("conanio/gcc6").inside("--net=host") {
