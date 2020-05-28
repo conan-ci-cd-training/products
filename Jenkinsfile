@@ -98,7 +98,7 @@ def promote_with_lockfile(lockfile_json, source_repo, target_repo, additional_re
   // that triggered this one. That library is not going to be in the lockfile
   // marked as build so maybe we want to add some references to the promotion
   def references_to_copy = []
-  def nodes = lockfile['graph_lock'].nodes
+  def nodes = lockfile_json['graph_lock'].nodes
   nodes.each { id, node_info ->
     if (node_info.modified) {
       references_to_copy.add(node_info.pref)
