@@ -114,7 +114,7 @@ pipeline {
             }
             ["${product}": build_result]
           }
-          echo products_build_result
+          println products_build_result
         }
       }
     }
