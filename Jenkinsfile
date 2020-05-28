@@ -100,7 +100,7 @@ def promote_with_lockfile(lockfile_json, source_repo, target_repo, additional_re
   def references_to_copy = []
   def nodes = lockfile['graph_lock'].nodes
   nodes.each { id, node_info ->
-    if (node_info.modified || ) {
+    if (node_info.modified) {
       references_to_copy.add(node_info.pref)
     }
     else {
