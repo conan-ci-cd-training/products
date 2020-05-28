@@ -104,7 +104,7 @@ pipeline {
       agent any
       steps {
         script {          
-          products_build_result = products.each { product ->
+          products_build_result = products.collectEntries { product ->
             stage("Build ${product}") {
               echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
@@ -114,7 +114,7 @@ pipeline {
             }
             ["${product}": build_result]
           }
-          println products_build_result
+          echo products_build_result
         }
       }
     }
