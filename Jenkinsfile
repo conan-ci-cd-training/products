@@ -75,7 +75,7 @@ def get_stages(product, profile, docker_image) {
                 // we upload to tmp, and later if everything is OK will promote to develop
                 stage("Upload to conan-tmp") {
                   if(params.library_branch == "develop") {
-                    sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm  --force"
+                    sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm"
                   }
                 }
               }
