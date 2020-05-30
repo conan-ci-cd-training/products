@@ -26,6 +26,7 @@ affected_products = []
 
 def build_ref_with_lockfile(reference, lockfile) {
   node {
+    unstash lockfile
     def actual_reference_name = reference.split("/")[0]
     def recipe_reference_with_revision = reference.split(":")[0]
     def actual_reference = reference.split("#")[0]
@@ -33,7 +34,6 @@ def build_ref_with_lockfile(reference, lockfile) {
     sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile ${lockfile}"
     sh "mv ${lockfile} ${actual_reference_name}.lock"
     sh "cat ${actual_reference_name}.lock"
-    stash name: actual_reference_name, includes: "${actual_reference_name}.lock"
     stage ("Upload packages ${actual_reference} to ${conan_tmp_repo}") {
       sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
     }
@@ -99,8 +99,8 @@ def get_stages(product, profile, docker_image) {
                       unstash lib_name
                       sh "conan graph update-lock ${lockfile} ${lib_name}.lock"
                     }
-                    stash name: 'lockfile', includes: lockfile
                   }                  
+                  lock_contents = readJSON(file: lockfile)
                   sh "cat ${lockfile}"
                 }
                 // In the case this job was triggered after a merge to the library's develop branch
