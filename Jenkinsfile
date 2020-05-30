@@ -24,7 +24,7 @@ products = ["App/1.0@mycompany/stable", "App2/1.0@mycompany/stable"]
 
 affected_products = []
 
-def build_ref_with_lockfile(reference, lockfile) {
+def build_ref_with_lockfile(reference, lockfile, profile) {
   node {
     unstash lockfile
     sh "ls"
@@ -34,10 +34,10 @@ def build_ref_with_lockfile(reference, lockfile) {
     def actual_reference = reference.split("#")[0]
     echo("Build ${actual_reference_name}")
     sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile ${lockfile}"
-    sh "mv ${lockfile} ${actual_reference_name}.lock"
-    stash name: actual_reference_name, includes: "${actual_reference_name}.lock"
-    sh "cat ${actual_reference_name}.lock"
-    stage ("Upload packages ${actual_reference} to ${conan_tmp_repo}") {
+    sh "mv conan.lock ${actual_reference_name}-${profile}.lock"
+    stash name: "${actual_reference_name}-${profile}", includes: "${actual_reference_name}-${profile}.lock"
+    sh "cat ${actual_reference_name}-${profile}.lock"
+    stage ("Upload packages ${actual_reference}-${profile} to ${conan_tmp_repo}") {
       sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
     }
   }
@@ -62,7 +62,7 @@ def get_stages(product, profile, docker_image) {
               }
               // create the graph lock for the latest versions of dependencies in develop repo and with the
               // latest revision of the library that trigered this pipeline
-              def lockfile = "conan.lock"
+              def lockfile = "conan-${profile}.lock"
               def bo_file = "build_order.json"
               def affected_product = false
               def lock_contents = [:]
@@ -76,7 +76,7 @@ def get_stages(product, profile, docker_image) {
 
                 // check if the build-order is empty, this product may not be affected by the changes
                 // or maybe we don't have to build anything if we are relaunching the builds
-                sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
+                sh "conan graph build-order ${lockfile} --json=${bo_file} --build missing"
                 sh "ls"
                 build_order = readJSON(file: bo_file)
                 if (build_order.size()>0) {
@@ -95,16 +95,18 @@ def get_stages(product, profile, docker_image) {
                     def stage_jobs = references_list.collectEntries { index_reference ->
                       def lib_name = index_reference[1].split("/")[0]
                       println lib_name
-                      ["${lib_name}": {
-                          stage("Building: ${lib_name}") {
-                            build_ref_with_lockfile(reference, lockfile)
+                      ["${lib_name}-${profile}": {
+                          stage("Building: ${lib_name} - ${profile}") {
+                            build_ref_with_lockfile(index_reference[1], lockfile, profile)
                           }
                         }]
                     }                  
                     parallel stage_jobs
-                    stage_jobs.each { lib_name, _ ->
-                      unstash lib_name
-                      sh "conan graph update-lock ${lockfile} ${lib_name}.lock"
+                    stage_jobs.each { lib_name_profile, _ ->
+                      echo "unstash ${lib_name_profile}"
+                      unstash lib_name_profile
+                      sh "cat ${lib_name_profile}.lock"
+                      sh "conan graph update-lock ${lockfile} ${lib_name_profile}.lock"
                     }
                   }                  
                   lock_contents = readJSON(file: lockfile)
@@ -226,10 +228,12 @@ pipeline {
                         writeJSON file: "conan.lock", json: lockfile
                         def lockfile_path = "/${artifactory_metadata_repo}/${env.JOB_NAME}/${env.BUILD_NUMBER}/${product}/${profile}/conan.lock"
                         def base_url = "http://${artifactory_url}:8081/artifactory"
+                        def name = product.split("/")[0]
+                        def version = product.split("/")[1].split("@")[0]
                         def properties = "?properties=build.name=${env.JOB_NAME}%7Cbuild.number=${env.BUILD_NUMBER}%7Cprofile=${profile}%7Cname=${name}%7Cversion=${version}"
                         withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                             // upload the lockfile
-                            sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X PUT ${base_url}${lockfile_path} -T ${lockfile}"
+                            sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X PUT ${base_url}${lockfile_path} -T conan.lock"
                             // set properties in Artifactory for the file
                             sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X PUT ${base_url}/api/storage${lockfile_path}${properties}"
                         }                                
