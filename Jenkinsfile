@@ -27,12 +27,15 @@ affected_products = []
 def build_ref_with_lockfile(reference, lockfile) {
   node {
     unstash lockfile
+    sh "ls"
+    sh "conan config home"
     def actual_reference_name = reference.split("/")[0]
     def recipe_reference_with_revision = reference.split(":")[0]
     def actual_reference = reference.split("#")[0]
     echo("Build ${actual_reference_name}")
     sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile ${lockfile}"
     sh "mv ${lockfile} ${actual_reference_name}.lock"
+    stash name: actual_reference_name, includes: "${actual_reference_name}.lock"
     sh "cat ${actual_reference_name}.lock"
     stage ("Upload packages ${actual_reference} to ${conan_tmp_repo}") {
       sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
@@ -73,7 +76,8 @@ def get_stages(product, profile, docker_image) {
 
                 // check if the build-order is empty, this product may not be affected by the changes
                 // or maybe we don't have to build anything if we are relaunching the builds
-                sh "conan graph build-order ${lockfile} --json=${bo_file} --build missing"
+                sh "conan graph build-order ${lockfile} --json=${bo_file} --build"
+                sh "ls"
                 build_order = readJSON(file: bo_file)
                 if (build_order.size()>0) {
                   affected_product = true
@@ -84,10 +88,13 @@ def get_stages(product, profile, docker_image) {
                 {
                   // now that we have a lockfile as an input conan install will update the build nodes
                   // sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
-                  
+                  stash name: lockfile, includes: lockfile
+
                   build_order.each { references_list ->
-                    def stage_jobs = references_list.collectEntries { reference ->
-                      def lib_name = reference.split("/")[0]
+                    println references_list
+                    def stage_jobs = references_list.collectEntries { index_reference ->
+                      def lib_name = index_reference[1].split("/")[0]
+                      println lib_name
                       ["${lib_name}": {
                           stage("Building: ${lib_name}") {
                             build_ref_with_lockfile(reference, lockfile)
