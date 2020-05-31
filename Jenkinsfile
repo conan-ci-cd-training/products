@@ -102,6 +102,8 @@ def get_stages(product, profile, docker_image) {
                       def lib_name = index_reference[1].split("/")[0]
                       println lib_name
                       def lib_name_profile = "${lib_name}-${profile}"
+                      // here, in the real world, one should invoke the actual lib pipeline, somemthing like:
+                      // build(job: "../lib/develop", propagate: true, wait: true, parameters...
                       build_ref_with_lockfile(index_reference[1], lockfile, profile).call()
                       echo "unstash ${lib_name_profile}"
                       unstash lib_name_profile
