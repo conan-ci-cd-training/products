@@ -25,20 +25,22 @@ products = ["App/1.0@mycompany/stable", "App2/1.0@mycompany/stable"]
 affected_products = []
 
 def build_ref_with_lockfile(reference, lockfile, profile) {
-  node {
-    unstash lockfile
-    sh "ls"
-    sh "conan config home"
-    def actual_reference_name = reference.split("/")[0]
-    def recipe_reference_with_revision = reference.split(":")[0]
-    def actual_reference = reference.split("#")[0]
-    echo("Build ${actual_reference_name}")
-    sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile ${lockfile}"
-    sh "mv conan.lock ${actual_reference_name}-${profile}.lock"
-    stash name: "${actual_reference_name}-${profile}", includes: "${actual_reference_name}-${profile}.lock"
-    sh "cat ${actual_reference_name}-${profile}.lock"
-    stage ("Upload packages ${actual_reference}-${profile} to ${conan_tmp_repo}") {
-      sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
+  return {
+    stage("Build: ${reference} - ${profile}") {
+      unstash lockfile
+      sh "ls"
+      sh "conan config home"
+      def actual_reference_name = reference.split("/")[0]
+      def recipe_reference_with_revision = reference.split(":")[0]
+      def actual_reference = reference.split("#")[0]
+      echo("Build ${actual_reference_name}")
+      sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile ${lockfile}"
+      sh "mv conan.lock ${actual_reference_name}-${profile}.lock"
+      stash name: "${actual_reference_name}-${profile}", includes: "${actual_reference_name}-${profile}.lock"
+      sh "cat ${actual_reference_name}-${profile}.lock"
+      stage ("Upload packages ${actual_reference}-${profile} to ${conan_tmp_repo}") {
+        sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
+      }
     }
   }
 }
@@ -84,41 +86,33 @@ def get_stages(product, profile, docker_image) {
                 }
               }
               if (affected_product) {
-                stage("Build ${product}")
+                stage("Launch build: ${product}")
                 {
                   // now that we have a lockfile as an input conan install will update the build nodes
+                  // doing an install with --build missing would produce the same results:
                   // sh "conan install ${product} --profile ${profile} --lockfile=${lockfile} --build missing "
+                  // but using the build order and iterating the list of libraries to build
+                  // we could call to the real pipeline that should build the libraries
+                  // (here we don't call that pipeline to simplify)
                   stash name: lockfile, includes: lockfile
 
                   build_order.each { references_list ->
                     println references_list
-                    def stage_jobs = references_list.collectEntries { index_reference ->
+                    def stage_jobs = references_list.each { index_reference ->
                       def lib_name = index_reference[1].split("/")[0]
                       println lib_name
-                      ["${lib_name}-${profile}": {
-                          stage("Building: ${lib_name} - ${profile}") {
-                            build_ref_with_lockfile(index_reference[1], lockfile, profile)
-                          }
-                        }]
-                    }                  
-                    parallel stage_jobs
-                    stage_jobs.each { lib_name_profile, _ ->
+                      def lib_name_profile = "${lib_name}-${profile}"
+                      build_ref_with_lockfile(index_reference[1], lockfile, profile).call()
                       echo "unstash ${lib_name_profile}"
                       unstash lib_name_profile
                       sh "cat ${lib_name_profile}.lock"
                       sh "conan graph update-lock ${lockfile} ${lib_name_profile}.lock"
                     }
                   }                  
+
                   lock_contents = readJSON(file: lockfile)
                   sh "cat ${lockfile}"
                 }
-                // In the case this job was triggered after a merge to the library's develop branch
-                // we upload to tmp, and later if everything is OK will promote to develop
-                // stage("Upload to conan-tmp") {
-                //   if(params.library_branch == "develop") {
-                //     sh "conan upload '*' --all -r ${conan_tmp_repo} --confirm"
-                //   }
-                // }
               }
               return lock_contents              
             }
