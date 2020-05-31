@@ -215,10 +215,10 @@ pipeline {
                 products_build_result.each { product, result ->
                   result.each { profile, lockfile ->
                     if (lockfile.size()>0) {
-                      stage("Upload artifacts built with profile: ${profile} to conan-develop repo") {
+                      stage("Promote ${profile} binaries to conan-develop") {
                         promote_with_lockfile(lockfile, conan_tmp_repo, conan_develop_repo, ["${params.reference}"])
                       }
-                      stage("Upload ${product} lockfile for profile: ${profile}") {
+                      stage("Upload lockfile: ${profile} - ${product}") {
                         writeJSON file: "conan.lock", json: lockfile
                         def lockfile_path = "/${artifactory_metadata_repo}/${env.JOB_NAME}/${env.BUILD_NUMBER}/${product}/${profile}/conan.lock"
                         def base_url = "http://${artifactory_url}:8081/artifactory"
