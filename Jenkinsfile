@@ -28,8 +28,6 @@ def build_ref_with_lockfile(reference, lockfile, profile, upload_ref) {
   return {
     stage("Build: ${reference} - ${profile}") {
       unstash lockfile
-      sh "ls"
-      sh "conan config home"
       def actual_reference_name = reference.split("/")[0]
       def recipe_reference_with_revision = reference.split(":")[0]
       def actual_reference = reference.split("#")[0]
@@ -81,7 +79,6 @@ def get_stages(product, profile, docker_image) {
                 // check if the build-order is empty, this product may not be affected by the changes
                 // or maybe we don't have to build anything if we are relaunching the builds
                 sh "conan graph build-order ${lockfile} --json=${bo_file} --build missing"
-                sh "ls"
                 build_order = readJSON(file: bo_file)
                 if (build_order.size()>0) {
                   affected_product = true
@@ -99,16 +96,13 @@ def get_stages(product, profile, docker_image) {
                   stash name: lockfile, includes: lockfile
 
                   build_order.each { references_list ->
-                    println references_list
                     def stage_jobs = references_list.each { index_reference ->
                       def lib_name = index_reference[1].split("/")[0]
-                      println lib_name
                       def lib_name_profile = "${lib_name}-${profile}"
                       // here, in the real world, one should invoke the actual lib pipeline, somemthing like:
                       // build(job: "../lib/develop", propagate: true, wait: true, parameters...
                       def upload_ref = (params.library_branch == "develop") ? true : false
                       build_ref_with_lockfile(index_reference[1], lockfile, profile, upload_ref).call()
-                      echo "unstash ${lib_name_profile}"
                       unstash lib_name_profile
                       sh "cat ${lib_name_profile}.lock"
                       sh "conan graph update-lock ${lockfile} ${lib_name_profile}.lock"
