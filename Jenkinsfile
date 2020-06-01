@@ -24,7 +24,7 @@ products = ["App/1.0@mycompany/stable", "App2/1.0@mycompany/stable"]
 
 affected_products = []
 
-def build_ref_with_lockfile(reference, lockfile, profile) {
+def build_ref_with_lockfile(reference, lockfile, profile, upload_ref) {
   return {
     stage("Build: ${reference} - ${profile}") {
       unstash lockfile
@@ -38,8 +38,10 @@ def build_ref_with_lockfile(reference, lockfile, profile) {
       sh "mv conan.lock ${actual_reference_name}-${profile}.lock"
       stash name: "${actual_reference_name}-${profile}", includes: "${actual_reference_name}-${profile}.lock"
       sh "cat ${actual_reference_name}-${profile}.lock"
-      stage ("Upload packages ${actual_reference}-${profile} to ${conan_tmp_repo}") {
-        sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
+      stage ("Upload reference ${actual_reference}-${profile} to ${conan_tmp_repo}") {
+        if (upload_ref) {
+          sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
+        }
       }
     }
   }
@@ -104,7 +106,8 @@ def get_stages(product, profile, docker_image) {
                       def lib_name_profile = "${lib_name}-${profile}"
                       // here, in the real world, one should invoke the actual lib pipeline, somemthing like:
                       // build(job: "../lib/develop", propagate: true, wait: true, parameters...
-                      build_ref_with_lockfile(index_reference[1], lockfile, profile).call()
+                      def upload_ref = (params.library_branch == "develop") ? true : false
+                      build_ref_with_lockfile(index_reference[1], lockfile, profile, upload_ref).call()
                       echo "unstash ${lib_name_profile}"
                       unstash lib_name_profile
                       sh "cat ${lib_name_profile}.lock"
