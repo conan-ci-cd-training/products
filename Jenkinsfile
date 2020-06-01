@@ -32,10 +32,10 @@ def build_ref_with_lockfile(reference, lockfile, profile, upload_ref) {
       def recipe_reference_with_revision = reference.split(":")[0]
       def actual_reference = reference.split("#")[0]
       echo("Build ${actual_reference_name}")
-      sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile ${lockfile}"
+      sh "cp ${lockfile} conan.lock"
+      sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile conan.lock"
       sh "mv conan.lock ${actual_reference_name}-${profile}.lock"
-      stash name: "${actual_reference_name}-${profile}", includes: "${actual_reference_name}-${profile}.lock"
-      sh "cat ${actual_reference_name}-${profile}.lock"
+      stash name: "${actual_reference_name}-${profile}.lock", includes: "${actual_reference_name}-${profile}.lock"
       stage ("Upload reference ${actual_reference}-${profile} to ${conan_tmp_repo}") {
         if (upload_ref) {
           sh "conan upload ${actual_reference} --all -r ${conan_tmp_repo} --confirm"
@@ -64,7 +64,7 @@ def get_stages(product, profile, docker_image) {
               }
               // create the graph lock for the latest versions of dependencies in develop repo and with the
               // latest revision of the library that trigered this pipeline
-              def lockfile = "conan-${profile}.lock"
+              def lockfile = "${profile}.lock"
               def bo_file = "build_order.json"
               def affected_product = false
               def lock_contents = [:]
@@ -98,14 +98,14 @@ def get_stages(product, profile, docker_image) {
                   build_order.each { references_list ->
                     def stage_jobs = references_list.each { index_reference ->
                       def lib_name = index_reference[1].split("/")[0]
-                      def lib_name_profile = "${lib_name}-${profile}"
+                      def lib_name_profile = "${lib_name}-${profile}.lock"
                       // here, in the real world, one should invoke the actual lib pipeline, somemthing like:
                       // build(job: "../lib/develop", propagate: true, wait: true, parameters...
                       def upload_ref = (params.library_branch == "develop") ? true : false
                       build_ref_with_lockfile(index_reference[1], lockfile, profile, upload_ref).call()
                       unstash lib_name_profile
-                      sh "cat ${lib_name_profile}.lock"
-                      sh "conan graph update-lock ${lockfile} ${lib_name_profile}.lock"
+                      sh "conan graph update-lock ${lockfile} ${lib_name_profile}"
+                      stash name: lockfile, includes: lockfile
                     }
                   }                  
 
