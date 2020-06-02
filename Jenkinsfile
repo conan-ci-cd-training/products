@@ -54,6 +54,7 @@ def get_stages(product, profile, docker_image) {
           withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/${profile}/conan_home"]) {
             try {
               stage("Configure conan") {
+                sh "conan config install ${config_url}"
                 withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
                     sh "conan remote add ${conan_develop_repo} http://${artifactory_url}:8081/artifactory/api/conan/${conan_develop_repo}" // the namme of the repo is the same that the arttifactory key
                     sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
