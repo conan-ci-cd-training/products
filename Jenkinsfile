@@ -51,7 +51,7 @@ def get_stages(product, profile, docker_image) {
       node {
         docker.image(docker_image).inside("--net=host") {
           echo "Inside docker image: ${docker_image}"
-          withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/conan_home"]) {
+          withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/${profile}/conan_home"]) {
             try {
               stage("Configure conan") {
                 sh "conan config install ${config_url}"
