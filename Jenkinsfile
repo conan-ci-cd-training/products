@@ -33,7 +33,7 @@ def build_ref_with_lockfile(reference, lockfile, profile, upload_ref) {
       def actual_reference = reference.split("#")[0]
       echo("Build ${actual_reference_name}")
       sh "cp ${lockfile} conan.lock"
-      sh "conan install ${recipe_reference_with_revision} --build ${actual_reference} --lockfile conan.lock"
+      sh "conan install ${actual_reference} --build ${actual_reference_name} --lockfile conan.lock"
       sh "mv conan.lock ${actual_reference_name}-${profile}.lock"
       stash name: "${actual_reference_name}-${profile}.lock", includes: "${actual_reference_name}-${profile}.lock"
       stage ("Upload reference ${actual_reference}-${profile} to ${conan_tmp_repo}") {
