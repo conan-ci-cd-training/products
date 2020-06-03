@@ -216,7 +216,8 @@ pipeline {
                         promote_with_lockfile(lockfile, conan_tmp_repo, conan_develop_repo, ["${params.reference}"])
                       }
                       stage("Upload lockfile: ${profile} - ${product}") {
-                        def lockfile_name = "${product}-${profile}.lock"
+                        def product_name = product.split("/")[0]
+                        def lockfile_name = "${product_name}-${profile}.lock"
                         writeJSON file: "${lockfile_name}", json: lockfile
                         def lockfile_path = "/${artifactory_metadata_repo}/${env.JOB_NAME}/${env.BUILD_NUMBER}/${product}/${profile}/${lockfile_name}"
                         def base_url = "http://${artifactory_url}:8081/artifactory"
