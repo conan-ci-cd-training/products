@@ -175,6 +175,24 @@ pipeline {
       agent any
       steps {
         script {          
+          // show some info
+          profiles.each { profile, docker_image ->
+              docker.image(docker_image).inside("--net=host") {
+                  withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/${profile}/conan_cache/"]) {
+                      sh "conan config install ${config_url}"
+                      withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                          sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
+                          sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
+                      }
+                      sh "conan --version"
+                      sh "conan config home"                               
+                      sh "conan remote list"                               
+                      sh "conan search '*' -r conan-develop"
+                  }                      
+              }
+          }
+          
+          // build
           products_build_result = products.collectEntries { product ->
             stage("Build ${product}") {
               echo "Building product '${product}'"
