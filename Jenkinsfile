@@ -123,26 +123,13 @@ def get_stages(product, profile, docker_image) {
   }
 }
 
-def promote_with_lockfile(lockfile_json, source_repo, target_repo, additional_references=[]) {
-  // additional_references are for the case, like in this workflow
-  // that we have a lockfile with some nodes marked as build but they
-  // are the result of creating a new revision of another lib in the pipeline
-  // that triggered this one. That library is not going to be in the lockfile
-  // marked as build so maybe we want to add some references to the promotion
+def promote_with_lockfile(lockfile_json, source_repo, target_repo) {
   def references_to_copy = []
   def nodes = lockfile_json['graph_lock'].nodes
   nodes.each { id, node_info ->
-    if (node_info.modified) {
-      references_to_copy.add(node_info.pref)
-    }
-    else {
-      additional_references.each { reference ->
-        if (node_info.pref.startsWith(reference)) {
-          references_to_copy.add(node_info.pref)
-        }
-      }
-    }
+    references_to_copy.add(node_info.pref)
   }
+  references_to_copy.unique()
   // now move all the package references that were build
   references_to_copy.each { pref ->
     // path: repo/user/name/version/channel/rrev/package/pkgid/prev/conan_package.tgz
@@ -157,7 +144,16 @@ def promote_with_lockfile(lockfile_json, source_repo, target_repo, additional_re
     echo "copy prev: ${prev} to ${target_repo}"
     withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
       sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${source_repo}/${user}/${name_version}/${channel}/${rrev}/export?to=${target_repo}/${user}/${name_version}/${channel}/${rrev}\""
-      sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${source_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}?to=${target_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}\""
+      // avoid copying again the same package revision
+      curl_output = sh (script: "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XGET \"http://${artifactory_url}:8081/artifactory/api/storage/${target_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}\"", returnStdout: true)
+      echo "${curl_output}"
+      // check if the path already exists in Artifactory and skip in that case
+      if (curl_output.contains("errors")) {
+        sh "curl -u\"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -XPOST \"http://${artifactory_url}:8081/artifactory/api/copy/${source_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}?to=${target_repo}/${user}/${name_version}/${channel}/${rrev}/package/${pkgid}/${prev}\""
+      }
+      else {
+        echo "Skipping copy. Location already exists"        
+      }
     } 
   }
 }
@@ -321,7 +317,7 @@ pipeline {
                   result.each { profile, lockfile ->
                     if (lockfile.size()>0) {
                       stage("Promote ${profile} binaries to conan-develop") {
-                        promote_with_lockfile(lockfile, conan_tmp_repo, conan_develop_repo, ["${params.reference}"])
+                        promote_with_lockfile(lockfile, conan_tmp_repo, conan_develop_repo)
                       }
                       stage("Upload lockfile: ${profile} - ${product}") {
                         def product_name = product.split("/")[0]
