@@ -147,7 +147,7 @@ pipeline {
             echo "---> Checking: ${product} <---"            
             def name = product.split("/")[0]
             // App and App2 never should be done in parallel, because you would build some dependencies twice
-            stage("Calc lockfiles for ${product}") {
+            stage("Calc lockfiles for ${product} for all profiles") {
               echo "Calc lockfiles for '${product}'"
               echo " - for changes in '${params.reference}'"
               build_orders = calc_lockfiles(product, "conanio/gcc6").call()
@@ -155,39 +155,49 @@ pipeline {
 
             def product_build_result = [:]
 
+            // we calculated the build order for each lockfile, and stashed all the lockfiles
+            // now we unstash the lockfiles and iterate each of the build orders building libraries
+            // updating the lockfile each time we build one library
+            // the libraries are built calling to the package pipeline that is defined in the
+            // repo for each library
             build_orders.each { lockfile, build_order ->
-              echo "----- lockfile ------"
-              println lockfile
-              echo "----- build_order ------"
-              println build_order
-              unstash lockfile
-              build_order.each { references_list ->
-                references_list.each { index_reference ->
-                  def lib_name = index_reference[1].split("/")[0]
-                  def lib_reference = index_reference[1].split("#")[0]
-                  def profile_name = lockfile.split("-",2)[1]
-                  echo "-------> build: ${lib_name} <-------"
-                  sh "cat ${lockfile}.lock"
-                  def lock_contents = readFile(file: "${lockfile}.lock")
-                  def build_params = [[$class: 'StringParameterValue', name: "${profile_name}", value: lock_contents]]
-                  def build_library_job = build(job: "../${lib_name}/develop", 
-                                                propagate: true, wait: true, 
-                                                parameters: build_params)
-                  def child_build_number = build_library_job.getNumber()
-                  def child_job_name = "${lib_name}/develop"
-                  def lib_lockfile_path = "/${artifactory_metadata_repo}/${child_job_name}/${child_build_number}/${lib_reference}/${profile_name}/${profile_name}.lock"
-                  def base_url = "http://${artifactory_url}:8081/artifactory"
-                  withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                      // download
-                      sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X GET ${base_url}${lib_lockfile_path} -o modified-${lib_name}-${profile_name}.lock"
-                  }                                
-                  sh "cat ${lockfile}.lock"
-                  sh "cat modified-${lib_name}-${profile_name}.lock"
-                  sh "conan graph update-lock ${lockfile}.lock modified-${lib_name}-${profile_name}.lock"
-                  sh "cat ${lockfile}.lock"
-                  product_build_result["${profile_name}"] = readJSON(file: "${lockfile}.lock")
-                }
-              }                      
+              // if the build order is empty that means that
+              // the product is not affected by the changes in the library
+              if (build_order.size()>0) {
+
+                unstash lockfile
+                build_order.each { references_list ->
+                  references_list.each { index_reference ->
+                    def lib_name = index_reference[1].split("/")[0]
+                    def lib_reference = index_reference[1].split("#")[0]
+                    def profile_name = lockfile.split("-",2)[1]
+                    echo "-------> build: ${lib_name} with ${lockfile}.lock<-------"
+                    sh "cat ${lockfile}.lock"
+                    def lock_contents = readFile(file: "${lockfile}.lock")
+                    
+                    def build_params = [[$class: 'StringParameterValue', name: "${profile_name}", value: lock_contents]]                  
+                    def build_library_job = build(job: "../${lib_name}/develop", 
+                                                  propagate: true, // propagate fails
+                                                  wait: true,      // wait until finishes
+                                                  parameters: build_params)
+
+                    // the build name and number are used to upload the lockfile in the previous job so we
+                    // have to get them to build the folder structure where that file is
+                    def child_build_number = build_library_job.getNumber()
+                    def child_job_name = "${lib_name}/develop"
+                    def lib_lockfile_path = "/${artifactory_metadata_repo}/${child_job_name}/${child_build_number}/${lib_reference}/${profile_name}/${profile_name}.lock"
+                    def base_url = "http://${artifactory_url}:8081/artifactory"
+                    withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                        sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X GET ${base_url}${lib_lockfile_path} -o modified-${lib_name}-${profile_name}.lock"
+                    }                                
+                    sh "cat ${lockfile}.lock"
+                    sh "cat modified-${lib_name}-${profile_name}.lock"
+                    sh "conan graph update-lock ${lockfile}.lock modified-${lib_name}-${profile_name}.lock"
+                    sh "cat ${lockfile}.lock"
+                    product_build_result["${profile_name}"] = readJSON(file: "${lockfile}.lock")
+                  }
+                }   
+              }
             }
             echo "---------product_build_result------------"
             println product_build_result
