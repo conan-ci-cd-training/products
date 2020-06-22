@@ -113,6 +113,95 @@ def calc_lockfiles(product, docker_image) {
   }
 }
 
+def get_stages(product, profile, docker_image) {
+  return {
+    stage(profile) {
+      node {
+        docker.image(docker_image).inside("--net=host") {
+          echo "Inside docker image: ${docker_image}"
+          withEnv(["CONAN_USER_HOME=${env.WORKSPACE}/${profile}/conan_home"]) {
+            try {
+              stage("Configure conan") {
+                sh "conan config install ${config_url}"
+                withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                    sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_develop_repo} ${ARTIFACTORY_USER}"
+                    sh "conan user -p ${ARTIFACTORY_PASSWORD} -r ${conan_tmp_repo} ${ARTIFACTORY_USER}"
+                }
+              }
+              // create the graph lock for the latest versions of dependencies in develop repo and with the
+              // latest revision of the library that trigered this pipeline
+              def product_name = product.split("/")[0]
+              def lockfile = "${product_name}-${profile}"
+              def bo_file = "build_order.json"
+              def affected_product = false
+              def lock_contents = [:]
+              stage("Check if the new revision ${params.reference} is in ${product} graph") {
+
+                // download the new revision of the lib and then resolve graph with develop repo
+                sh "conan download ${params.reference} -r ${conan_tmp_repo}"
+                sh "conan remote remove ${conan_tmp_repo}"
+                sh "conan graph lock ${product} --profile=${profile} --lockfile=${lockfile}.lock -r ${conan_develop_repo}"
+
+                // check if the build-order is empty, this product may not be affected by the changes
+                // or maybe we don't have to build anything if we are relaunching the builds
+                sh "conan graph build-order ${lockfile}.lock --json=${bo_file} --build missing"
+                build_order = readJSON(file: bo_file)
+                if (build_order.size()>0) {
+                  affected_product = true
+                }
+              }
+              if (affected_product) {
+                stage("Launch build: ${product}")
+                {
+
+                  build_order.each { references_list ->
+                    references_list.each { index_reference ->
+                      def lib_name = index_reference[1].split("/")[0]
+                      def lib_reference = index_reference[1].split("#")[0]
+                      def profile_name = lockfile.split("-",2)[1]
+                      echo "-------> build: ${lib_name} with ${lockfile}.lock <-------"
+                      stage("build ${lib_name}")
+                      {
+                        sh "cat ${lockfile}.lock"
+                        def lockfile_info = readFile(file: "${lockfile}.lock")
+                        
+                        def build_params = [[$class: 'StringParameterValue', name: "${profile_name}", value: lockfile_info]]                  
+                        def build_library_job = build(job: "../${lib_name}/develop", 
+                                                      propagate: true, // propagate fails
+                                                      wait: true,      // wait until finishes
+                                                      parameters: build_params)
+
+                        // the build name and number are used to upload the lockfile in the previous job so we
+                        // have to get them to build the folder structure where that file is
+                        def child_build_number = build_library_job.getNumber()
+                        def child_job_name = "${lib_name}/develop"
+                        def lib_lockfile_path = "/${artifactory_metadata_repo}/${child_job_name}/${child_build_number}/${lib_reference}/${profile_name}/${profile_name}.lock"
+                        def base_url = "http://${artifactory_url}:8081/artifactory"
+                        withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
+                            sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X GET ${base_url}${lib_lockfile_path} -o modified-${lib_name}-${profile_name}.lock"
+                        }                                
+                        sh "cat ${lockfile}.lock"
+                        sh "cat modified-${lib_name}-${profile_name}.lock"
+                        sh "conan graph update-lock ${lockfile}.lock modified-${lib_name}-${profile_name}.lock"
+                        sh "cat ${lockfile}.lock"
+                      }
+                    }
+                  }               
+                  lock_contents = readJSON(file: "${lockfile}.lock")
+                }
+              }
+              return lock_contents              
+            }
+            finally {
+                deleteDir()
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 pipeline {
   agent none
 
@@ -142,69 +231,17 @@ pipeline {
               }
           }
 
-          // build
           products_build_result = products.collectEntries { product ->
-            echo "---> Checking: ${product} <---"            
-            def name = product.split("/")[0]
-            // App and App2 never should be done in parallel, because you would build some dependencies twice
-            stage("Calc lockfiles for ${product} for all profiles") {
-              echo "Calc lockfiles for '${product}'"
+            stage("Build ${product}") {
+              echo "Building product '${product}'"
               echo " - for changes in '${params.reference}'"
-              build_orders = calc_lockfiles(product, "conanio/gcc6").call()
+              build_result = parallel profiles.collectEntries { profile, docker_image ->
+                ["${profile}": get_stages(product, profile, docker_image)]
+              }              
             }
-
-            def product_build_result = [:]
-
-            // we calculated the build order for each lockfile, and stashed all the lockfiles
-            // now we unstash the lockfiles and iterate each of the build orders building libraries
-            // updating the lockfile each time we build one library
-            // the libraries are built calling to the package pipeline that is defined in the
-            // repo for each library
-            build_orders.each { lockfile, build_order ->
-              // if the build order is empty that means that
-              // the product is not affected by the changes in the library
-              if (build_order.size()>0) {
-
-                unstash lockfile
-                build_order.each { references_list ->
-                  references_list.each { index_reference ->
-                    def lib_name = index_reference[1].split("/")[0]
-                    def lib_reference = index_reference[1].split("#")[0]
-                    def profile_name = lockfile.split("-",2)[1]
-                    echo "-------> build: ${lib_name} with ${lockfile}.lock<-------"
-                    sh "cat ${lockfile}.lock"
-                    def lock_contents = readFile(file: "${lockfile}.lock")
-                    
-                    def build_params = [[$class: 'StringParameterValue', name: "${profile_name}", value: lock_contents]]                  
-                    def build_library_job = build(job: "../${lib_name}/develop", 
-                                                  propagate: true, // propagate fails
-                                                  wait: true,      // wait until finishes
-                                                  parameters: build_params)
-
-                    // the build name and number are used to upload the lockfile in the previous job so we
-                    // have to get them to build the folder structure where that file is
-                    def child_build_number = build_library_job.getNumber()
-                    def child_job_name = "${lib_name}/develop"
-                    def lib_lockfile_path = "/${artifactory_metadata_repo}/${child_job_name}/${child_build_number}/${lib_reference}/${profile_name}/${profile_name}.lock"
-                    def base_url = "http://${artifactory_url}:8081/artifactory"
-                    withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD')]) {
-                        sh "curl --user \"\${ARTIFACTORY_USER}\":\"\${ARTIFACTORY_PASSWORD}\" -X GET ${base_url}${lib_lockfile_path} -o modified-${lib_name}-${profile_name}.lock"
-                    }                                
-                    sh "cat ${lockfile}.lock"
-                    sh "cat modified-${lib_name}-${profile_name}.lock"
-                    sh "conan graph update-lock ${lockfile}.lock modified-${lib_name}-${profile_name}.lock"
-                    sh "cat ${lockfile}.lock"
-                    product_build_result["${profile_name}"] = readJSON(file: "${lockfile}.lock")
-                  }
-                }   
-              }
-            }
-            echo "---------product_build_result------------"
-            println product_build_result
-            echo "----------------------"
-            ["${product}": product_build_result]
+            ["${product}": build_result]
           }
-          println products_build_result
+          println products_build_result          
         }
       }
     }
